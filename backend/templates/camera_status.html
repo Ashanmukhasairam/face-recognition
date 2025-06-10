@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Camera Status</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            padding-top: 60px;
+        }
+        .navbar {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background-color: #333;
+            padding: 15px 0;
+            z-index: 1000;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        .navbar a:hover {
+            background-color: #555;
+        }
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .status-box {
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .status-item {
+            margin: 10px 0;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <a href="/">Home</a>
+        <a href="/register">Register</a>
+        <a href="/attendance">View Attendance</a>
+        <a href="/camera_status">Camera Status</a>
+    </div>
+    
+    <div class="container">
+        <h1>Camera Status</h1>
+        
+        <div class="status-box">
+            <div class="status-item">
+                <strong>Camera Initialized:</strong> 
+                <span class="{{ 'success' if status.camera_initialized else 'error' }}">
+                    {{ "Yes" if status.camera_initialized else "No" }}
+                </span>
+            </div>
+            
+            <div class="status-item">
+                <strong>Camera Opened:</strong>
+                <span class="{{ 'success' if status.camera_opened else 'error' }}">
+                    {{ "Yes" if status.camera_opened else "No" }}
+                </span>
+            </div>
+            
+            <div class="status-item">
+                <strong>Status Message:</strong>
+                <span class="{{ 'success' if 'working' in status.message else 'error' }}">
+                    {{ status.message }}
+                </span>
+            </div>
+        </div>
+        
+        <p>If the camera is not working:</p>
+        <ol>
+            <li>Make sure no other application is using the camera</li>
+            <li>Try unplugging and replugging your camera if it's external</li>
+            <li>Restart the application</li>
+            <li>Check your camera permissions in Windows settings</li>
+        </ol>
+        
+        <button onclick="window.location.reload()">Refresh Status</button>
+    </div>
+</body>
+</html>
