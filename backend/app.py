@@ -1,9 +1,8 @@
-from flask import Flask, render_template, Response, request, redirect, url_for, make_response, make_response
+import os
+from flask import Flask, render_template, Response, request, redirect, url_for, make_response
 import cv2
 import face_recognition
 import numpy as np
-import os
-import base64
 import pandas as pd
 from datetime import datetime
 from database import (
@@ -16,12 +15,25 @@ from database import (
 
 app = Flask(__name__)
 
+# Production settings
+app.config['PRODUCTION'] = os.environ.get('PRODUCTION', False)
+
+# Initialize camera only in development
+camera = None
+if not app.config['PRODUCTION']:
+    try:
+        camera = cv2.VideoCapture(0)
+    except Exception as e:
+        print(f"Camera initialization error: {e}")
+
+# Ensure data directories exist
+os.makedirs('known_faces', exist_ok=True)
+os.makedirs('data', exist_ok=True)
+
 # Ensure Excel file exists
 if not os.path.exists('attendance.xlsx'):
     df = pd.DataFrame(columns=["Name", "Date", "Time"])
     df.to_excel('attendance.xlsx', index=False)
-
-camera = cv2.VideoCapture(0)
 
 def gen_frames():
     # Define a threshold for face recognition - lower is more strict
@@ -141,6 +153,13 @@ def user_image(name):
         response.headers['Content-Type'] = 'image/jpeg'
         return response
     return "Image not found", 404
+
+def get_dummy_frame():
+    """Create a dummy frame for production environment"""
+    frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    cv2.putText(frame, "Camera disabled in production", (50, 240),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+    return frame
 
 if __name__ == '__main__':
     app.run(debug=True)
