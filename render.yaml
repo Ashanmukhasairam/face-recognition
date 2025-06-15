@@ -3,21 +3,26 @@ services:
     name: face-recognition
     env: python
     buildCommand: |
-      apt-get update && apt-get install -y cmake build-essential pkg-config libgl1-mesa-dev
-      python -m ensurepip
-      python -m pip install --upgrade pip setuptools wheel
-      python -m pip install cmake dlib==19.24.1
-      python setup.py develop
+      # System dependencies
+      apt-get update
+      apt-get install -y cmake build-essential pkg-config libgl1-mesa-dev
+
+      # Ensure pip is available and up to date
+      python -m ensurepip --upgrade
+      python -m pip install --upgrade pip
+
+      # Install Python packages
+      pip install --no-cache-dir -r requirements.txt
     startCommand: cd backend && gunicorn --config gunicorn_config.py app:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.0
       - key: PYTHONPATH
-        value: .
+        value: /opt/render/project/src
       - key: PYTHONUNBUFFERED
         value: "true"
       - key: MONGODB_URI
-        value: mongodb+srv://zerodha-clone:snikM1912@wanderlust.18okj.mongodb.net/?retryWrites=true&w=majority&appName=wanderlust
+        sync: false
       - key: DB_NAME
         value: face_recognition
     autoDeploy: true
