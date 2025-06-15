@@ -3,15 +3,18 @@ services:
     name: face-recognition
     env: python
     buildCommand: |
-      apt-get update && apt-get install -y cmake build-essential libgl1-mesa-dev
-      pip install --upgrade pip
-      pip install dlib==19.24.1
-      pip install cmake
-      pip install -r requirements.txt
+      apt-get update && apt-get install -y cmake build-essential pkg-config libgl1-mesa-dev
+      python -m ensurepip
+      python -m pip install --upgrade pip
+      python -m pip install setuptools==68.2.2 wheel
+      python -m pip install cmake dlib==19.24.1
+      python setup.py develop
     startCommand: cd backend && gunicorn --config gunicorn_config.py app:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.0
+      - key: PYTHONPATH
+        value: .
       - key: PYTHONUNBUFFERED
         value: "true"
       - key: MONGODB_URI
