@@ -1,25 +1,26 @@
-# Install these first
-wheel==0.40.0
-setuptools==67.8.0
+# Basic requirements
+wheel>=0.40.0
+setuptools>=67.8.0
 pip>=23.0.1
 
-# Web
-gunicorn==20.1.0
-Flask==2.0.3
-Werkzeug==2.0.3
+# Web framework
+gunicorn>=20.1.0
+Flask>=2.0.3
+Werkzeug>=2.0.3
 
-# Core ML & CV - using compatible versions
-https://files.pythonhosted.org/packages/84/1e/1ac87b66b6fd21ff6c6ea02f9389da2ea0ee7eb229c251cec62aa9cc5c60/numpy-1.19.5-cp39-cp39-manylinux2010_x86_64.whl
-https://files.pythonhosted.org/packages/af/cb/9a8892d8f50b8a3320df66e58b737dd67f8f5173666576576730654e521e/opencv_python_headless-4.5.5.64-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
-https://files.pythonhosted.org/packages/ca/f9/9356c4dd0a9ff153587551a1f7d8532709015d51733f3e39d1b32598e26a/dlib-19.22.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
-
-# Face Recognition
-face-recognition-models==0.3.0
-face-recognition==1.3.0
+# Core ML & CV
+numpy>=1.21.0,<2.0.0
+opencv-python-headless>=4.5.5.64
+dlib>=19.22.0
+face-recognition-models>=0.3.0
+face-recognition>=1.3.0
+Pillow>=8.4.0
 
 # Data handling
-Pillow==8.4.0
-pandas==1.3.5
-pymongo==3.12.3
-python-dotenv==0.19.2
-openpyxl==3.0.9
+pandas>=1.3.5
+pymongo>=3.12.3
+python-dotenv>=0.19.2
+openpyxl>=3.0.9
+
+# Build dependencies
+cmake>=3.25.0

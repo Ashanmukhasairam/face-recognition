@@ -4,39 +4,39 @@ services:
     env: python
     plan: free
     buildCommand: |
-      # Install Python 3.9
+      # System dependencies
       apt-get update
-      apt-get install -y python3.9 python3.9-dev python3.9-venv
-
-      # System libraries for OpenCV and dlib
-      apt-get install -y \
+      DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        build-essential \
+        cmake \
+        pkg-config \
         libgl1-mesa-dev \
         libglib2.0-0 \
         libsm6 \
         libxext6 \
-        libxrender-dev
+        libxrender-dev \
+        libx11-dev \
+        python3-dev \
+        python3-pip \
+        python3-venv
 
-      # Set up virtual environment
-      python3.9 -m venv /opt/venv
-      . /opt/venv/bin/activate
-
-      # Upgrade pip and install wheel first
-      pip install --upgrade pip wheel setuptools
-
-      # Install all requirements
-      pip install -r requirements.txt --no-cache-dir
-
-      # Create necessary directories
+      # Create directories
       mkdir -p backend/data backend/known_faces
 
+      # Upgrade pip and install build tools
+      python -m pip install --upgrade pip setuptools wheel
+
+      # Install dependencies in order
+      python -m pip install numpy
+      python -m pip install cmake
+      python -m pip install dlib
+      python -m pip install -r requirements.txt
+
     startCommand: |
-      . /opt/venv/bin/activate
       cd backend
-      exec gunicorn --bind=0.0.0.0:10000 --workers=1 --timeout=120 app:app
+      python -m gunicorn --bind=0.0.0.0:10000 --workers=1 --timeout=120 app:app
 
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.9.18
       - key: PYTHONPATH
         value: /opt/render/project/src
       - key: PYTHONUNBUFFERED
