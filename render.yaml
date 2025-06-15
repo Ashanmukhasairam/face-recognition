@@ -7,6 +7,9 @@ services:
     buildCommand: |
       # System dependencies
       apt-get update && apt-get install -y \
+        python3.9 \
+        python3.9-dev \
+        python3.9-venv \
         cmake \
         build-essential \
         pkg-config \
@@ -15,54 +18,46 @@ services:
         libsm6 \
         libxext6 \
         libxrender-dev \
-        libx11-dev \
-        python3.9-dev \
-        python3.9-distutils
+        libx11-dev
 
-      # Create required directories
+      # Create virtual environment with Python 3.9
+      python3.9 -m venv /opt/venv
+      . /opt/venv/bin/activate
+
+      # Upgrade pip and install build tools first
+      pip install --upgrade pip
+      pip install setuptools==67.8.0 wheel==0.40.0
+
+      # Install core dependencies one by one to ensure proper installation
+      pip install flask==2.0.3
+      pip install werkzeug==2.0.3
+      pip install gunicorn==20.1.0
+      pip install click==8.0.4
+      pip install numpy==1.19.5
+      pip install cmake==3.25.0
+      pip install dlib==19.22.0
+      pip install face-recognition==1.3.0
+      pip install Pillow==8.4.0
+      pip install pandas==1.3.5
+      pip install pymongo==3.12.3
+      pip install python-dotenv==0.19.2
+      pip install openpyxl==3.0.9
+      pip install whitenoise==5.3.0
+      pip install python-multipart==0.0.5
+
+      # Create necessary directories
       mkdir -p backend/data backend/known_faces
 
-      # Install Python 3.9 and create virtual environment
-      python -m venv .venv
-      . .venv/bin/activate
-
-      # Upgrade pip and install build tools
-      python -m pip install --upgrade pip
-      python -m pip install setuptools wheel
-
-      # Install web dependencies first
-      python -m pip install "flask==2.0.3" \
-                          "werkzeug==2.0.3" \
-                          "gunicorn==20.1.0" \
-                          "click==8.0.4"
-
-      # Install ML and data dependencies
-      python -m pip install "numpy==1.19.5" \
-                          "scipy==1.7.3" \
-                          "cmake==3.25.0" \
-                          "dlib==19.22.0" \
-                          "face-recognition-models==0.3.0" \
-                          "face-recognition==1.3.0" \
-                          "Pillow==8.4.0" \
-                          "pandas==1.3.5" \
-                          "pymongo==3.12.3" \
-                          "openpyxl==3.0.9"
-
-      # Install other dependencies
-      python -m pip install "python-dotenv==0.19.2" \
-                          "whitenoise==5.3.0" \
-                          "python-multipart==0.0.5"
-
-      # Verify installations
-      python -m pip freeze
-      which gunicorn
-      which python
-
-    startCommand: |
-      . .venv/bin/activate && \
-      export PYTHONPATH=/opt/render/project/src:$PYTHONPATH && \
-      cd backend && \
-      python -m gunicorn --config gunicorn_config.py app:app
+      # Print debug information
+      echo "Python version:"
+      python --version
+      echo "Pip version:"
+      pip --version
+      echo "Installed packages:"
+      pip freeze    startCommand: |
+      . /opt/venv/bin/activate
+      cd backend
+      exec gunicorn --config gunicorn_config.py app:app
     
     envVars:
       - key: PYTHON_VERSION
