@@ -38,7 +38,7 @@ services:
       cd backend && gunicorn --config gunicorn_config.py app:app
     envVars:
       - key: PYTHON_VERSION
-        value: 3.10
+        value: 3.10.13
       - key: PYTHONPATH
         value: /opt/render/project/src
       - key: PYTHONUNBUFFERED
