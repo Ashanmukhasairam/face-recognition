@@ -4,39 +4,50 @@ services:
     env: python
     plan: free
     buildCommand: |
-      # Install minimal system dependencies
-      apt-get update && apt-get install -y --no-install-recommends \
+      # Install system dependencies
+      apt-get update && apt-get install -y \
         build-essential \
         cmake \
         libgl1-mesa-dev \
-        python3-dev \
-        && rm -rf /var/lib/apt/lists/*
+        libglib2.0-0 \
+        libsm6 \
+        libxext6 \
+        libxrender-dev
 
-      # Create minimal required directories
+      # Create virtual environment with Python 3.9
+      python3.9 -m venv venv
+      . venv/bin/activate
+
+      # Create directories
       mkdir -p backend/data backend/known_faces
 
-      # Install dependencies with pip
-      pip install --no-cache-dir -U pip setuptools wheel
-      pip install --no-cache-dir numpy==1.21.6  # Install numpy first
-      pip install --no-cache-dir -r requirements.txt
+      # Upgrade pip and install dependencies
+      python3.9 -m pip install --upgrade pip setuptools wheel
+      python3.9 -m pip install numpy==1.21.6  # Install numpy first
+      python3.9 -m pip install -r requirements.txt --no-cache-dir
 
       # Clean up
       rm -rf ~/.cache/pip
       find . -type d -name __pycache__ -exec rm -r {} +
 
-    startCommand: cd backend && exec gunicorn --bind=0.0.0.0:10000 --workers=1 --timeout=120 app:app
+    startCommand: |
+      . venv/bin/activate
+      cd backend 
+      exec gunicorn --config gunicorn_config.py app:app
 
     envVars:
-      - key: PYTHONPATH
-        value: /opt/render/project/src
-      - key: PYTHONUNBUFFERED
-        value: "true"
-      - key: PRODUCTION
-        value: "true"
+      - key: PYTHON_VERSION
+        value: "3.13"
       - key: MONGODB_URI
         sync: false
       - key: DB_NAME
         value: face_recognition
+      - key: FLASK_ENV
+        value: production
+      - key: PYTHONUNBUFFERED
+        value: "true"
+      - key: PRODUCTION
+        value: "true"
       - key: PYTHONDONTWRITEBYTECODE
         value: "1"
     healthCheckPath: /health
