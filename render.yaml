@@ -22,27 +22,61 @@ services:
       # Create required directories
       mkdir -p backend/data backend/known_faces
 
-      # Create and activate virtual environment
-      python -m venv venv
-      . venv/bin/activate
+      # Install Python 3.9 and create virtual environment
+      python -m venv .venv
+      . .venv/bin/activate
 
-      # Install build tools and core dependencies
-      python -m pip install --upgrade pip setuptools wheel
-      python -m pip install cmake==3.25.0 numpy==1.19.5 dlib==19.22.0
+      # Upgrade pip and install build tools
+      python -m pip install --upgrade pip
+      python -m pip install setuptools wheel
 
-      # Install gunicorn and other web dependencies first
-      python -m pip install gunicorn==20.1.0 flask==2.0.3 werkzeug==2.0.3
+      # Install web dependencies first
+      python -m pip install "flask==2.0.3" \
+                          "werkzeug==2.0.3" \
+                          "gunicorn==20.1.0" \
+                          "click==8.0.4"
 
-      # Install the project and remaining dependencies
-      python -m pip install -e .
+      # Install ML and data dependencies
+      python -m pip install "numpy==1.19.5" \
+                          "scipy==1.7.3" \
+                          "cmake==3.25.0" \
+                          "dlib==19.22.0" \
+                          "face-recognition-models==0.3.0" \
+                          "face-recognition==1.3.0" \
+                          "Pillow==8.4.0" \
+                          "pandas==1.3.5" \
+                          "pymongo==3.12.3" \
+                          "openpyxl==3.0.9"
 
-      # Verify gunicorn installation
+      # Install other dependencies
+      python -m pip install "python-dotenv==0.19.2" \
+                          "whitenoise==5.3.0" \
+                          "python-multipart==0.0.5"
+
+      # Verify installations
+      python -m pip freeze
       which gunicorn
+      which python
 
     startCommand: |
-      . venv/bin/activate && \
+      . .venv/bin/activate && \
+      export PYTHONPATH=/opt/render/project/src:$PYTHONPATH && \
       cd backend && \
-      gunicorn --config gunicorn_config.py app:app
+      python -m gunicorn --config gunicorn_config.py app:app
+    
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.18
+      - key: PYTHONPATH
+        value: /opt/render/project/src
+      - key: PYTHONUNBUFFERED
+        value: "true"
+      - key: PRODUCTION
+        value: "true"
+      - key: MONGODB_URI
+        sync: false
+      - key: DB_NAME
+        value: face_recognition
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.18
