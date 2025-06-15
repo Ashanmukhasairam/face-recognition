@@ -4,37 +4,35 @@ services:
     env: python
     plan: free
     buildCommand: |
-      # System dependencies
-      apt-get update && apt-get install -y \
-        python3.9 \
-        python3.9-dev \
-        python3.9-venv \
-        cmake \
-        build-essential \
-        pkg-config \
+      # Install Python 3.9
+      apt-get update
+      apt-get install -y python3.9 python3.9-dev python3.9-venv
+
+      # System libraries for OpenCV and dlib
+      apt-get install -y \
         libgl1-mesa-dev \
         libglib2.0-0 \
         libsm6 \
         libxext6 \
-        libxrender-dev \
-        libx11-dev
+        libxrender-dev
 
-      # Create directories
+      # Set up virtual environment
+      python3.9 -m venv /opt/venv
+      . /opt/venv/bin/activate
+
+      # Upgrade pip and install wheel first
+      pip install --upgrade pip wheel setuptools
+
+      # Install all requirements
+      pip install -r requirements.txt --no-cache-dir
+
+      # Create necessary directories
       mkdir -p backend/data backend/known_faces
 
-      # Create and activate venv
-      python3.9 -m venv .venv
-      . .venv/bin/activate
-
-      # Install dependencies
-      python3.9 -m pip install --upgrade pip wheel setuptools
-      python3.9 -m pip install cmake
-      python3.9 -m pip install -r requirements.txt
-
     startCommand: |
-      . .venv/bin/activate
+      . /opt/venv/bin/activate
       cd backend
-      gunicorn --bind 0.0.0.0:10000 --workers 1 app:app
+      exec gunicorn --bind=0.0.0.0:10000 --workers=1 --timeout=120 app:app
 
     envVars:
       - key: PYTHON_VERSION
@@ -49,5 +47,6 @@ services:
         sync: false
       - key: DB_NAME
         value: face_recognition
+    healthCheckPath: /health
     healthCheckPath: /health
     autoDeploy: true
