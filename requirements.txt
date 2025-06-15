@@ -3,5 +3,8 @@ setuptools>=61.0.0
 wheel>=0.40.0
 cmake==3.25.0
 
+# Web server
+gunicorn==20.1.0
+
 # Project installation
 -e .

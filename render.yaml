@@ -22,26 +22,27 @@ services:
       # Create required directories
       mkdir -p backend/data backend/known_faces
 
-      # Create and activate virtual environment with Python 3.9
-      python3.9 -m venv venv
+      # Create and activate virtual environment
+      python -m venv venv
       . venv/bin/activate
 
-      # Install build tools
+      # Install build tools and core dependencies
       python -m pip install --upgrade pip setuptools wheel
+      python -m pip install cmake==3.25.0 numpy==1.19.5 dlib==19.22.0
 
-      # Install build dependencies
-      python -m pip install cmake==3.25.0
+      # Install gunicorn and other web dependencies first
+      python -m pip install gunicorn==20.1.0 flask==2.0.3 werkzeug==2.0.3
 
-      # Install core dependencies first
-      python -m pip install numpy==1.19.5
-      python -m pip install dlib==19.22.0
-
-      # Install the project and its dependencies
+      # Install the project and remaining dependencies
       python -m pip install -e .
 
+      # Verify gunicorn installation
+      which gunicorn
+
     startCommand: |
-      . venv/bin/activate
-      cd backend && python -m gunicorn --config gunicorn_config.py app:app
+      . venv/bin/activate && \
+      cd backend && \
+      gunicorn --config gunicorn_config.py app:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.18
