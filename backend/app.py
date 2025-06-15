@@ -35,14 +35,52 @@ if not os.path.exists('attendance.xlsx'):
     df = pd.DataFrame(columns=["Name", "Date", "Time"])
     df.to_excel('attendance.xlsx', index=False)
 
+def create_message_frame(message="Camera not available in production mode"):
+    # Create a black frame
+    frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    
+    # Add text to the frame
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.7
+    color = (255, 255, 255)  # White text
+    thickness = 2
+    
+    # Get the text size
+    text_size = cv2.getTextSize(message, font, font_scale, thickness)[0]
+    
+    # Calculate text position to center it
+    text_x = (frame.shape[1] - text_size[0]) // 2
+    text_y = (frame.shape[0] + text_size[1]) // 2
+    
+    # Put the text on the frame
+    cv2.putText(frame, message, (text_x, text_y), font, font_scale, color, thickness)
+    
+    return frame
+
 def gen_frames():
+    # Check if in production mode
+    if app.config['PRODUCTION']:
+        while True:
+            frame = create_message_frame()
+            ret, buffer = cv2.imencode('.jpg', frame)
+            if not ret:
+                continue
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+        return
+
     # Define a threshold for face recognition - lower is more strict
     FACE_RECOGNITION_THRESHOLD = 0.5
     
     while True:
         success, frame = camera.read()
         if not success:
-            break
+            frame = create_message_frame("Camera error - trying to reconnect...")
+            ret, buffer = cv2.imencode('.jpg', frame)
+            if ret:
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+            continue
             
         # Get latest face encodings for each frame
         known_encodings, known_names = get_all_face_encodings()
