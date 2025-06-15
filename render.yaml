@@ -5,39 +5,28 @@ services:
     plan: free
     region: ohio
     buildCommand: |
-      # Force Python 3.9
-      curl -O https://www.python.org/ftp/python/3.9.18/Python-3.9.18.tgz
-      tar xzf Python-3.9.18.tgz
-      cd Python-3.9.18
-      ./configure --enable-optimizations
-      make -j$(nproc)
-      make install
-      cd ..
-      rm -rf Python-3.9.18*
-      python3.9 -m pip install --upgrade pip
-
       # System dependencies
       apt-get update && apt-get install -y \
         cmake \
         build-essential \
         pkg-config \
         libgl1-mesa-dev \
-        libx11-dev \
-        python3.9-dev
+        libglib2.0-0 \
+        libsm6 \
+        libxext6 \
+        libxrender-dev \
+        libx11-dev
 
       # Ensure pip and build tools are up to date
-      python3.9 -m pip install --upgrade pip
-      python3.9 -m pip install wheel==0.40.0 setuptools==67.8.0
+      pip install --upgrade pip
+      pip install wheel==0.40.0 setuptools==67.8.0
 
-      # Install core dependencies in correct order with specific versions
-      python3.9 -m pip install numpy==1.21.6
-      python3.9 -m pip install cmake==3.27.0
-      python3.9 -m pip install dlib==19.22.1
+      # Install dependencies in correct order
+      pip install numpy==1.19.5
+      pip install cmake==3.25.0
+      pip install -r requirements.txt
 
-      # Install remaining dependencies
-      python3.9 -m pip install -r requirements.txt
-
-    startCommand: cd backend && python3.9 -m gunicorn --config gunicorn_config.py app:app
+    startCommand: cd backend && gunicorn --config gunicorn_config.py app:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.18
@@ -45,8 +34,11 @@ services:
         value: /opt/render/project/src
       - key: PYTHONUNBUFFERED
         value: "true"
+      - key: PRODUCTION
+        value: "true"
       - key: MONGODB_URI
         sync: false
       - key: DB_NAME
         value: face_recognition
+    healthCheckPath: /health
     autoDeploy: true

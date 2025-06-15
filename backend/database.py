@@ -1,4 +1,5 @@
-from pymongo import MongoClient
+import logging
+from pymongo import MongoClient, errors
 from dotenv import load_dotenv
 import os
 import numpy as np
@@ -8,45 +9,116 @@ from datetime import datetime
 import pandas as pd
 import cv2
 from bson.binary import Binary
+from functools import wraps
+import time
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-client = MongoClient(os.getenv('MONGODB_URI'))
-db = client[os.getenv('DB_NAME')]
+# Constants
+EXCEL_FILE = os.path.join(os.path.dirname(__file__), 'attendance.xlsx')
+DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
+KNOWN_FACES_DIR = os.path.join(os.path.dirname(__file__), 'known_faces')
 
-EXCEL_FILE = 'attendance.xlsx'
+# Ensure directories exist
+for directory in [DATA_DIR, KNOWN_FACES_DIR]:
+    os.makedirs(directory, exist_ok=True)
 
+# Initialize Excel file if it doesn't exist
+if not os.path.exists(EXCEL_FILE):
+    df = pd.DataFrame(columns=["Name", "Date", "Time"])
+    df.to_excel(EXCEL_FILE, index=False)
+
+# Global variables
+client = None
+db = None
+MAX_RETRIES = 3
+RETRY_DELAY = 1  # seconds
+
+def init_db():
+    """Initialize database connection with retry logic"""
+    global client, db
+    
+    mongodb_uri = os.getenv('MONGODB_URI')
+    if not mongodb_uri:
+        raise ValueError("MONGODB_URI environment variable is not set")
+    
+    db_name = os.getenv('DB_NAME', 'face_recognition')
+    
+    for attempt in range(MAX_RETRIES):
+        try:
+            client = MongoClient(mongodb_uri, serverSelectionTimeoutMS=5000)
+            # Verify connection
+            client.server_info()
+            db = client[db_name]
+            logger.info(f"Successfully connected to MongoDB database: {db_name}")
+            return
+        except errors.ServerSelectionTimeoutError as e:
+            if attempt == MAX_RETRIES - 1:
+                raise Exception(f"Could not connect to MongoDB after {MAX_RETRIES} attempts: {e}")
+            logger.warning(f"MongoDB connection attempt {attempt + 1} failed, retrying...")
+            time.sleep(RETRY_DELAY)
+
+def db_operation(f):
+    """Decorator to handle database operations with retry logic"""
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        for attempt in range(MAX_RETRIES):
+            try:
+                return f(*args, **kwargs)
+            except errors.AutoReconnect as e:
+                if attempt == MAX_RETRIES - 1:
+                    logger.error(f"Failed to execute database operation after {MAX_RETRIES} attempts")
+                    raise
+                logger.warning(f"Database operation failed, attempt {attempt + 1}, retrying...")
+                time.sleep(RETRY_DELAY)
+    return wrapper
+
+@db_operation
 def save_face_encoding(name, face_encoding, frame):
-    """Save face encoding and image to both database and file system"""
-    # Save to MongoDB
-    users_collection = db.users
-    
-    # Convert face encoding to bytes
-    face_encoding_bytes = pickle.dumps(face_encoding)
-    
-    # Convert image directly to binary
-    _, img_encoded = cv2.imencode('.jpg', frame)
-    img_binary = Binary(img_encoded.tobytes())
-    
-    user_data = {
-        'name': name,
-        'face_encoding': face_encoding_bytes,
-        'image_data': img_binary,  # Store as binary data
-        'created_at': datetime.now()
-    }
-    
-    # Check if user already exists in MongoDB
-    existing_user = users_collection.find_one({'name': name})
-    if existing_user:
-        users_collection.update_one(
-            {'name': name},
-            {'$set': user_data}
-        )
-    else:
-        users_collection.insert_one(user_data)
-    
-    # Save face image to file system as well
-    cv2.imwrite(f'known_faces/{name}.jpg', frame)
+    """Save face encoding and image to database with error handling"""
+    try:
+        users_collection = db.users
+        
+        # Convert face encoding to bytes
+        face_encoding_bytes = pickle.dumps(face_encoding)
+        
+        # Convert image directly to binary
+        _, img_encoded = cv2.imencode('.jpg', frame)
+        img_binary = Binary(img_encoded.tobytes())
+        
+        user_data = {
+            'name': name,
+            'face_encoding': face_encoding_bytes,
+            'image_data': img_binary,
+            'created_at': datetime.now()
+        }
+        
+        # Check if user already exists
+        existing_user = users_collection.find_one({'name': name})
+        if existing_user:
+            users_collection.update_one(
+                {'name': name},
+                {'$set': user_data}
+            )
+            logger.info(f"Updated face encoding for user: {name}")
+        else:
+            users_collection.insert_one(user_data)
+            logger.info(f"Saved new face encoding for user: {name}")
+            
+        # Save face image to file system as backup
+        try:
+            os.makedirs('known_faces', exist_ok=True)
+            cv2.imwrite(f'known_faces/{name}.jpg', frame)
+        except Exception as e:
+            logger.warning(f"Could not save backup image to file system: {e}")
+            
+    except Exception as e:
+        logger.error(f"Error saving face encoding: {e}")
+        raise
 
 def get_user_image(name):
     """Retrieve user's image from database"""
@@ -78,7 +150,7 @@ def get_all_face_encodings():
                 encodings.append(face_encoding)
                 names.append(user['name'])
         except Exception as e:
-            print(f"Error loading face encoding for {user['name']}: {e}")
+            logger.error(f"Error loading face encoding for {user['name']}: {e}")
             continue
     
     return np.array(encodings), names
@@ -119,7 +191,7 @@ def mark_attendance_db(name):
                 df = pd.concat([df, new_row], ignore_index=True)
                 df.to_excel(EXCEL_FILE, index=False)
         except Exception as e:
-            print(f"Error writing to Excel: {e}")
+            logger.error(f"Error writing to Excel: {e}")
 
 def get_attendance_records():
     """Get attendance records from both MongoDB and Excel"""
@@ -146,7 +218,7 @@ def get_attendance_records():
                 excel_records = excel_df.to_dict('records')
                 records.extend(excel_records)
     except Exception as e:
-        print(f"Error reading Excel: {e}")
+        logger.error(f"Error reading Excel: {e}")
     
     # Deduplicate records
     seen = set()
@@ -161,3 +233,6 @@ def get_attendance_records():
     # Sort by date and time
     unique_records.sort(key=lambda x: (x['Date'], x['Time']), reverse=True)
     return unique_records
+
+# Initialize the database connection
+init_db()

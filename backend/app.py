@@ -1,30 +1,49 @@
 import os
-from flask import Flask, render_template, Response, request, redirect, url_for, make_response
+from flask import Flask, render_template, Response, request, redirect, url_for, make_response, jsonify
 import cv2
 import face_recognition
 import numpy as np
 import pandas as pd
 from datetime import datetime
+import logging
 from database import (
     save_face_encoding,
     get_all_face_encodings,
     mark_attendance_db,
     get_attendance_records,
-    get_user_image
+    get_user_image,
+    init_db
 )
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
 # Production settings
-app.config['PRODUCTION'] = os.environ.get('PRODUCTION', False)
+app.config['PRODUCTION'] = os.environ.get('PRODUCTION', 'false').lower() == 'true'
+app.config['MONGODB_URI'] = os.environ.get('MONGODB_URI')
+app.config['DB_NAME'] = os.environ.get('DB_NAME', 'face_recognition')
+
+# Initialize database connection
+try:
+    init_db()
+    logger.info("Database initialized successfully")
+except Exception as e:
+    logger.error(f"Database initialization failed: {e}")
 
 # Initialize camera only in development
 camera = None
 if not app.config['PRODUCTION']:
     try:
         camera = cv2.VideoCapture(0)
+        if not camera.isOpened():
+            raise Exception("Could not open camera")
+        logger.info("Camera initialized successfully")
     except Exception as e:
-        print(f"Camera initialization error: {e}")
+        logger.error(f"Camera initialization error: {e}")
+        camera = None
 
 # Ensure data directories exist
 os.makedirs('known_faces', exist_ok=True)
@@ -45,16 +64,12 @@ def create_message_frame(message="Camera not available in production mode"):
     color = (255, 255, 255)  # White text
     thickness = 2
     
-    # Get the text size
+    # Get the text size and center it
     text_size = cv2.getTextSize(message, font, font_scale, thickness)[0]
-    
-    # Calculate text position to center it
     text_x = (frame.shape[1] - text_size[0]) // 2
     text_y = (frame.shape[0] + text_size[1]) // 2
     
-    # Put the text on the frame
     cv2.putText(frame, message, (text_x, text_y), font, font_scale, color, thickness)
-    
     return frame
 
 def gen_frames():
@@ -109,7 +124,7 @@ def gen_frames():
                             confidence = 1 - face_distances[best_match_index]
                             mark_attendance_db(name)
                 except Exception as e:
-                    print(f"Error in face comparison: {e}")
+                    logger.error(f"Error in face comparison: {e}")
                     continue
 
             # Draw name and confidence score
@@ -163,7 +178,7 @@ def register():
                         return render_template('register.html', 
                                             error=f"This face is already registered under the name: {existing_name} (Match confidence: {confidence:.1f}%)")
                 except Exception as e:
-                    print(f"Error during face comparison: {e}")
+                    logger.error(f"Error during face comparison: {e}")
                     return render_template('register.html', 
                                         error="An error occurred during face comparison. Please try again.")
             
@@ -191,6 +206,17 @@ def user_image(name):
         response.headers['Content-Type'] = 'image/jpeg'
         return response
     return "Image not found", 404
+
+# Health check endpoint
+@app.route('/health')
+def health_check():
+    status = {
+        'status': 'healthy',
+        'production': app.config['PRODUCTION'],
+        'camera': camera is not None if not app.config['PRODUCTION'] else 'N/A',
+        'database': 'connected' if app.config['MONGODB_URI'] else 'not configured'
+    }
+    return jsonify(status)
 
 def get_dummy_frame():
     """Create a dummy frame for production environment"""
