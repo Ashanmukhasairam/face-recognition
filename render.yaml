@@ -3,8 +3,7 @@ services:
     name: face-recognition
     env: python
     buildCommand: |
-      apt-get update && apt-get install -y cmake build-essential pkg-config
-      pip install --no-cache-dir cmake dlib==19.24.1
+      python -m pip install --upgrade pip setuptools wheel
       pip install -r requirements.txt
     startCommand: cd backend && gunicorn --config gunicorn_config.py app:app
     envVars:
