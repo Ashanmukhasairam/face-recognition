@@ -19,17 +19,24 @@ services:
         python3.9-dev \
         python3.9-distutils
 
+      # Create required directories
+      mkdir -p backend/data backend/known_faces
+
       # Create and activate virtual environment with Python 3.9
       python3.9 -m venv venv
       . venv/bin/activate
 
       # Install build tools
       python -m pip install --upgrade pip setuptools wheel
-      
+
       # Install build dependencies
       python -m pip install cmake==3.25.0
 
-      # Install the project in editable mode
+      # Install core dependencies first
+      python -m pip install numpy==1.19.5
+      python -m pip install dlib==19.22.0
+
+      # Install the project and its dependencies
       python -m pip install -e .
 
     startCommand: |
