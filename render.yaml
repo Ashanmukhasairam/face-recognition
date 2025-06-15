@@ -11,30 +11,38 @@ services:
         libgl1-mesa-dev \
         libglib2.0-0 \
         libsm6 \
-        libxext6 \
-        libxrender-dev
+        libxext6
+      
+      # Clear pip cache and upgrade basic tools
+      pip cache purge
+      pip install --no-cache-dir --upgrade pip setuptools wheel
 
-      # Create virtual environment with Python 3.9
-      python3.9 -m venv venv
-      . venv/bin/activate
-
-      # Create directories
-      mkdir -p backend/data backend/known_faces
-
-      # Upgrade pip and install dependencies
-      python3.9 -m pip install --upgrade pip setuptools wheel
-      python3.9 -m pip install numpy==1.21.6  # Install numpy first
-      python3.9 -m pip install -r requirements.txt --no-cache-dir
-
-      # Clean up
+      # Install basic dependencies first
+      pip install --no-cache-dir Flask>=2.3.0 Werkzeug>=2.3.0 gunicorn>=21.0.0 python-dotenv>=1.0.0 pymongo[srv]>=4.5.0
+      
+      # Install numpy and Pillow first as they're required by other packages
+      pip install --no-cache-dir numpy>=1.24.0 Pillow>=10.0.0
+      
+      # Install pandas separately as it's large
+      pip install --no-cache-dir pandas>=2.0.0
+      
+      # Install OpenCV headless to save memory
+      pip install --no-cache-dir opencv-python-headless>=4.8.0
+      
+      # Clean up before dlib installation
+      apt-get clean
+      rm -rf /var/lib/apt/lists/*
+      
+      # Install dlib and face-recognition last, with limited parallel builds
+      export CMAKE_BUILD_PARALLEL_LEVEL=1
+      pip install --no-cache-dir dlib>=19.24.0
+      pip install --no-cache-dir face-recognition>=1.3.0
+      
+      # Final cleanup
+      pip cache purge
       rm -rf ~/.cache/pip
-      find . -type d -name __pycache__ -exec rm -r {} +
-
     startCommand: |
-      . venv/bin/activate
-      cd backend 
-      exec gunicorn --config gunicorn_config.py app:app
-
+      cd backend && gunicorn --config gunicorn_config.py app:app
     envVars:
       - key: PYTHON_VERSION
         value: "3.13"
@@ -44,11 +52,7 @@ services:
         value: face_recognition
       - key: FLASK_ENV
         value: production
-      - key: PYTHONUNBUFFERED
-        value: "true"
-      - key: PRODUCTION
-        value: "true"
-      - key: PYTHONDONTWRITEBYTECODE
+      - key: CMAKE_BUILD_PARALLEL_LEVEL  # Limit parallel builds globally
         value: "1"
     healthCheckPath: /health
     healthCheckPath: /health
