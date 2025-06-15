@@ -1,26 +1,18 @@
-# Basic requirements
-wheel>=0.40.0
-setuptools>=67.8.0
-pip>=23.0.1
+# Core requirements - minimal versions
+Flask==2.0.3
+Werkzeug==2.0.3
+gunicorn==20.1.0
+python-dotenv==0.19.2
 
-# Web framework
-gunicorn>=20.1.0
-Flask>=2.0.3
-Werkzeug>=2.0.3
+# Computer Vision - headless versions to save space
+opencv-python-headless==4.5.5.64
+numpy==1.21.6
+dlib==19.22.0
+face-recognition==1.3.0
 
-# Core ML & CV
-numpy>=1.21.0,<2.0.0
-opencv-python-headless>=4.5.5.64
-dlib>=19.22.0
-face-recognition-models>=0.3.0
-face-recognition>=1.3.0
-Pillow>=8.4.0
+# Database
+pymongo[srv]==3.12.3
 
-# Data handling
-pandas>=1.3.5
-pymongo>=3.12.3
-python-dotenv>=0.19.2
-openpyxl>=3.0.9
-
-# Build dependencies
-cmake>=3.25.0
+# Only needed packages for production
+Pillow==8.4.0  # Required for face_recognition
+pandas==1.3.5  # Required for attendance tracking

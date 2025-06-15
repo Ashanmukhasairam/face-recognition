@@ -4,37 +4,27 @@ services:
     env: python
     plan: free
     buildCommand: |
-      # System dependencies
-      apt-get update
-      DEBIAN_FRONTEND=noninteractive apt-get install -y \
+      # Install minimal system dependencies
+      apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
         cmake \
-        pkg-config \
         libgl1-mesa-dev \
-        libglib2.0-0 \
-        libsm6 \
-        libxext6 \
-        libxrender-dev \
-        libx11-dev \
         python3-dev \
-        python3-pip \
-        python3-venv
+        && rm -rf /var/lib/apt/lists/*
 
-      # Create directories
+      # Create minimal required directories
       mkdir -p backend/data backend/known_faces
 
-      # Upgrade pip and install build tools
-      python -m pip install --upgrade pip setuptools wheel
+      # Install dependencies with pip
+      pip install --no-cache-dir -U pip setuptools wheel
+      pip install --no-cache-dir numpy==1.21.6  # Install numpy first
+      pip install --no-cache-dir -r requirements.txt
 
-      # Install dependencies in order
-      python -m pip install numpy
-      python -m pip install cmake
-      python -m pip install dlib
-      python -m pip install -r requirements.txt
+      # Clean up
+      rm -rf ~/.cache/pip
+      find . -type d -name __pycache__ -exec rm -r {} +
 
-    startCommand: |
-      cd backend
-      python -m gunicorn --bind=0.0.0.0:10000 --workers=1 --timeout=120 app:app
+    startCommand: cd backend && exec gunicorn --bind=0.0.0.0:10000 --workers=1 --timeout=120 app:app
 
     envVars:
       - key: PYTHONPATH
@@ -47,6 +37,8 @@ services:
         sync: false
       - key: DB_NAME
         value: face_recognition
+      - key: PYTHONDONTWRITEBYTECODE
+        value: "1"
     healthCheckPath: /health
     healthCheckPath: /health
     autoDeploy: true
