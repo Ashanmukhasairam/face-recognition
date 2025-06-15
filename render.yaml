@@ -3,61 +3,70 @@ services:
     name: face-recognition
     env: python
     plan: free
-    region: ohio
+    runtime: python3.9
     buildCommand: |
-      # System dependencies
-      apt-get update && apt-get install -y \
-        python3.9 \
-        python3.9-dev \
-        python3.9-venv \
-        cmake \
+      # Update package lists and install system dependencies
+      apt-get update
+      DEBIAN_FRONTEND=noninteractive apt-get install -y \
         build-essential \
+        cmake \
         pkg-config \
         libgl1-mesa-dev \
         libglib2.0-0 \
         libsm6 \
         libxext6 \
         libxrender-dev \
-        libx11-dev
-
-      # Create virtual environment with Python 3.9
-      python3.9 -m venv /opt/venv
-      . /opt/venv/bin/activate
-
-      # Upgrade pip and install build tools first
-      pip install --upgrade pip
-      pip install setuptools==67.8.0 wheel==0.40.0
-
-      # Install core dependencies one by one to ensure proper installation
-      pip install flask==2.0.3
-      pip install werkzeug==2.0.3
-      pip install gunicorn==20.1.0
-      pip install click==8.0.4
-      pip install numpy==1.19.5
-      pip install cmake==3.25.0
-      pip install dlib==19.22.0
-      pip install face-recognition==1.3.0
-      pip install Pillow==8.4.0
-      pip install pandas==1.3.5
-      pip install pymongo==3.12.3
-      pip install python-dotenv==0.19.2
-      pip install openpyxl==3.0.9
-      pip install whitenoise==5.3.0
-      pip install python-multipart==0.0.5
+        libx11-dev \
+        python3.9-dev
 
       # Create necessary directories
       mkdir -p backend/data backend/known_faces
 
-      # Print debug information
-      echo "Python version:"
-      python --version
-      echo "Pip version:"
-      pip --version
-      echo "Installed packages:"
-      pip freeze    startCommand: |
-      . /opt/venv/bin/activate
-      cd backend
-      exec gunicorn --config gunicorn_config.py app:app
+      # Ensure we're using Python 3.9
+      curl -o python.tar.gz https://www.python.org/ftp/python/3.9.18/Python-3.9.18.tgz
+      tar -xf python.tar.gz
+      cd Python-3.9.18
+      ./configure --enable-optimizations
+      make -j$(nproc)
+      make install
+      cd ..
+      rm -rf Python-3.9.18 python.tar.gz
+
+      # Create and activate virtual environment
+      python3.9 -m venv .venv
+      . .venv/bin/activate
+
+      # Install dependencies without using setup.py or pyproject.toml
+      pip install --upgrade pip
+
+      # Install core dependencies
+      pip install \
+        flask==2.0.3 \
+        werkzeug==2.0.3 \
+        gunicorn==20.1.0 \
+        click==8.0.4 \
+        numpy==1.19.5 \
+        cmake==3.25.0 \
+        dlib==19.22.0 \
+        face-recognition==1.3.0 \
+        Pillow==8.4.0 \
+        pandas==1.3.5 \
+        pymongo==3.12.3 \
+        python-dotenv==0.19.2 \
+        openpyxl==3.0.9 \
+        whitenoise==5.3.0 \
+        python-multipart==0.0.5
+
+      # Copy backend files to a known location
+      cp -r backend/* /opt/render/project/src/
+
+      # Debug information
+      which python3.9
+      python3.9 --version
+      pip list    startCommand: |
+      . .venv/bin/activate
+      cd /opt/render/project/src
+      PYTHONPATH=/opt/render/project/src gunicorn --config gunicorn_config.py app:app
     
     envVars:
       - key: PYTHON_VERSION
@@ -68,10 +77,14 @@ services:
         value: "true"
       - key: PRODUCTION
         value: "true"
+      - key: LANG
+        value: C.UTF-8
       - key: MONGODB_URI
         sync: false
       - key: DB_NAME
         value: face_recognition
+
+    healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.18
