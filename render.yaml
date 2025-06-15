@@ -3,23 +3,29 @@ services:
     name: face-recognition
     env: python
     plan: free
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: PIP_NO_CACHE_DIR
+        value: "1"
+      - key: DISABLE_OPENCV_PARALLEL_BUILD
+        value: "1"
     buildCommand: |
-      # Install minimal system dependencies
+      # Install only essential system dependencies
       apt-get update
       apt-get install -y --no-install-recommends \
         build-essential \
-        cmake \
-        libgl1-mesa-dev \
-        libglib2.0-0 \
-        libsm6 \
-        libxext6
+        libgl1-mesa-glx \
+        libglib2.0-0
       apt-get clean
       rm -rf /var/lib/apt/lists/*
 
-      # Set environment variables for minimal builds
-      export CFLAGS="-O2"
+      # Set environment variables for minimal memory usage
+      export CFLAGS="-Os"
+      export CXXFLAGS="-Os"
       export CMAKE_BUILD_PARALLEL_LEVEL=1
       export MAKEFLAGS="-j1"
+      export FACE_RECOGNITION_DISABLE_GPU=1
       
       # Clear any existing pip cache
       pip cache purge
@@ -30,23 +36,19 @@ services:
 
       # Install packages in small groups with cleanup between each
       
-      # Group 1: Basic requirements
-      pip install --no-cache-dir \
-        Flask==2.3.0 \
-        Werkzeug==2.3.0 \
-        gunicorn==21.0.0 \
-        python-dotenv==1.0.0
-      pip cache purge
-      
-      # Group 2: Database
-      pip install --no-cache-dir pymongo[srv]==4.5.0
-      pip cache purge
-      
-      # Group 3: Numpy and Pillow (minimal installs)
-      pip install --no-cache-dir \
-        numpy==1.24.0 \
-        Pillow==10.0.0
-      pip cache purge
+      # Install packages in order of dependency with minimal memory usage
+      pip install --no-cache-dir numpy==1.24.3
+      pip install --no-cache-dir Pillow==10.0.1
+      pip install --no-cache-dir dlib==19.24.2 --no-deps
+      pip install --no-cache-dir face-recognition==1.3.0 --no-deps
+      pip install --no-cache-dir opencv-python-headless==4.8.1.78
+      pip install --no-cache-dir Flask==2.3.3 Werkzeug==2.3.7 gunicorn==21.2.0
+      pip install --no-cache-dir pymongo==4.5.0
+      pip install --no-cache-dir pandas==2.0.3 --no-deps
+
+      # Clean up all caches
+      rm -rf ~/.cache/pip
+      find /tmp -type f -delete
       
       # Group 4: OpenCV (headless)
       pip install --no-cache-dir opencv-python-headless==4.8.0
