@@ -4,43 +4,71 @@ services:
     env: python
     plan: free
     buildCommand: |
-      # Install system dependencies
-      apt-get update && apt-get install -y \
+      # Install minimal system dependencies
+      apt-get update
+      apt-get install -y --no-install-recommends \
         build-essential \
         cmake \
         libgl1-mesa-dev \
         libglib2.0-0 \
         libsm6 \
         libxext6
-      
-      # Clear pip cache and upgrade basic tools
-      pip cache purge
-      pip install --no-cache-dir --upgrade pip setuptools wheel
-
-      # Install basic dependencies first
-      pip install --no-cache-dir Flask>=2.3.0 Werkzeug>=2.3.0 gunicorn>=21.0.0 python-dotenv>=1.0.0 pymongo[srv]>=4.5.0
-      
-      # Install numpy and Pillow first as they're required by other packages
-      pip install --no-cache-dir numpy>=1.24.0 Pillow>=10.0.0
-      
-      # Install pandas separately as it's large
-      pip install --no-cache-dir pandas>=2.0.0
-      
-      # Install OpenCV headless to save memory
-      pip install --no-cache-dir opencv-python-headless>=4.8.0
-      
-      # Clean up before dlib installation
       apt-get clean
       rm -rf /var/lib/apt/lists/*
-      
-      # Install dlib and face-recognition last, with limited parallel builds
+
+      # Set environment variables for minimal builds
+      export CFLAGS="-O2"
       export CMAKE_BUILD_PARALLEL_LEVEL=1
-      pip install --no-cache-dir dlib>=19.24.0
-      pip install --no-cache-dir face-recognition>=1.3.0
+      export MAKEFLAGS="-j1"
+      
+      # Clear any existing pip cache
+      pip cache purge
+      rm -rf ~/.cache/pip
+      
+      # Upgrade pip with minimal dependencies
+      pip install --no-cache-dir --upgrade pip
+
+      # Install packages in small groups with cleanup between each
+      
+      # Group 1: Basic requirements
+      pip install --no-cache-dir \
+        Flask==2.3.0 \
+        Werkzeug==2.3.0 \
+        gunicorn==21.0.0 \
+        python-dotenv==1.0.0
+      pip cache purge
+      
+      # Group 2: Database
+      pip install --no-cache-dir pymongo[srv]==4.5.0
+      pip cache purge
+      
+      # Group 3: Numpy and Pillow (minimal installs)
+      pip install --no-cache-dir \
+        numpy==1.24.0 \
+        Pillow==10.0.0
+      pip cache purge
+      
+      # Group 4: OpenCV (headless)
+      pip install --no-cache-dir opencv-python-headless==4.8.0
+      pip cache purge
+      
+      # Group 5: Pandas (minimal install)
+      pip install --no-cache-dir pandas==2.0.0
+      pip cache purge
+      
+      # Group 6: Build and install dlib with minimal memory usage
+      pip install --no-cache-dir setuptools wheel
+      DLIB_USE_CUDA=0 pip install --no-cache-dir --no-deps dlib==19.24.0
+      pip cache purge
+      
+      # Group 7: Face recognition (no deps to avoid reinstalling)
+      pip install --no-cache-dir --no-deps face-recognition==1.3.0
       
       # Final cleanup
       pip cache purge
       rm -rf ~/.cache/pip
+      rm -rf /tmp/*
+      
     startCommand: |
       cd backend && gunicorn --config gunicorn_config.py app:app
     envVars:
@@ -52,8 +80,14 @@ services:
         value: face_recognition
       - key: FLASK_ENV
         value: production
-      - key: CMAKE_BUILD_PARALLEL_LEVEL  # Limit parallel builds globally
+      - key: CMAKE_BUILD_PARALLEL_LEVEL
         value: "1"
+      - key: MAKEFLAGS
+        value: "-j1"
+      - key: PIP_NO_CACHE_DIR
+        value: "true"
+      - key: CFLAGS
+        value: "-O2"
     healthCheckPath: /health
     healthCheckPath: /health
     autoDeploy: true
